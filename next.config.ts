@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next';
 
-let nextConfig: NextConfig = {
+const nextConfig: NextConfig = {
   cacheComponents: true,
   reactCompiler: true,
 
-  serverExternalPackages: ['pino', 'pino-pretty', 'thread-stream'],
+  serverExternalPackages: ['pino', 'pino-pretty', 'thread-stream', 'sharp'],
 
   experimental: {
     turbopackFileSystemCacheForDev: true,

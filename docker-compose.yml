@@ -1,4 +1,4 @@
-name: nextjs-template
+name: photo-undup
 
 services:
   db:

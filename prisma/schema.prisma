@@ -16,3 +16,45 @@ model Todo {
 
   @@map("todos")
 }
+
+model ScannedFile {
+  id               Int             @id @default(autoincrement())
+  path             String          @unique
+  name             String
+  size             BigInt
+  mimeType         String
+  hash             String?
+  width            Int?
+  height           Int?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  duplicateGroupId Int?
+  duplicateGroup   DuplicateGroup? @relation(fields: [duplicateGroupId], references: [id])
+
+  @@index([hash])
+  @@map("scanned_files")
+}
+
+model DuplicateGroup {
+  id        Int           @id @default(autoincrement())
+  hash      String        @unique
+  files     ScannedFile[]
+  createdAt DateTime      @default(now())
+
+  @@map("duplicate_groups")
+}
+
+model FileAction {
+  id         Int       @id @default(autoincrement())
+  type       String    // 'DELETE' | 'RESTORE'
+  sourcePath String
+  targetPath String?
+  fileName   String
+  fileSize   BigInt?
+  mimeType   String?
+  createdAt  DateTime  @default(now())
+  revertedAt DateTime?
+
+  @@map("file_actions")
+}
