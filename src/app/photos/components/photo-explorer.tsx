@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { DirectoryEntry, DuplicateGroupInfo, ScanProgressEvent } from '@/lib/server/photos/photos.types';
 import { isImageMimeType, isVideoMimeType } from '@/lib/server/photos/photos.types';
@@ -504,6 +504,145 @@ function SpinnerIcon() {
   );
 }
 
+// ─── directory picker modal ───────────────────────────────────────────────────
+
+function DirectoryPickerModal({ onSelect, onClose }: { onSelect: (path: string) => void; onClose: () => void }) {
+  const [currentPath, setCurrentPath] = useState('');
+  const [entries, setEntries] = useState<{ name: string; path: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const navigate = useCallback(async (path: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/photos/files?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error('Cannot read directory');
+      const data: { name: string; path: string; type: string }[] = await res.json();
+      setCurrentPath(path);
+      setEntries(data.filter((e) => e.type === 'directory'));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load home directory on mount
+  useEffect(() => {
+    fetch('/api/photos/home')
+      .then((r) => r.json())
+      .then(({ home }: { home: string }) => navigate(home))
+      .catch(() => navigate('/'));
+  }, [navigate]);
+
+  // Build breadcrumb parts from current path
+  const parts = currentPath.split('/').filter(Boolean);
+
+  const navigateUp = () => {
+    const parent = currentPath.split('/').slice(0, -1).join('/') || '/';
+    navigate(parent);
+  };
+
+  return (
+    <div
+      className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border-border flex h-[480px] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="border-border flex items-center justify-between border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Select a folder</h2>
+          <button onClick={onClose} className="hover:bg-muted rounded-lg p-1.5 transition-colors">
+            <CloseIcon />
+          </button>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="border-border bg-muted/40 flex items-center gap-1 overflow-x-auto border-b px-3 py-2 text-xs">
+          <button onClick={() => navigate('/')} className="hover:text-primary flex-shrink-0 transition-colors">
+            /
+          </button>
+          {parts.map((part, i) => {
+            const pathUpTo = '/' + parts.slice(0, i + 1).join('/');
+            return (
+              <span key={pathUpTo} className="flex items-center gap-1">
+                <span className="text-muted-foreground">/</span>
+                <button
+                  onClick={() => navigate(pathUpTo)}
+                  className={[
+                    'flex-shrink-0 transition-colors',
+                    i === parts.length - 1 ? 'font-semibold' : 'hover:text-primary',
+                  ].join(' ')}
+                >
+                  {part}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Directory list */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="text-muted-foreground flex h-full items-center justify-center gap-2 text-sm">
+              <SpinnerIcon />
+              Loading…
+            </div>
+          ) : error ? (
+            <div className="text-destructive flex h-full items-center justify-center p-4 text-sm">{error}</div>
+          ) : (
+            <div className="p-2">
+              {currentPath !== '/' && (
+                <button
+                  onClick={navigateUp}
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                >
+                  <span className="text-muted-foreground">↑</span>
+                  <span className="text-muted-foreground italic">Parent folder</span>
+                </button>
+              )}
+              {entries.length === 0 && (
+                <p className="text-muted-foreground px-3 py-6 text-center text-sm">No subfolders</p>
+              )}
+              {entries.map((entry) => (
+                <button
+                  key={entry.path}
+                  onClick={() => navigate(entry.path)}
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors"
+                >
+                  <FolderIcon className="text-primary h-4 w-4 flex-shrink-0" />
+                  <span className="min-w-0 truncate text-left">{entry.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-border flex items-center justify-between border-t px-4 py-3">
+          <p className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs" title={currentPath}>
+            {currentPath || '…'}
+          </p>
+          <button
+            onClick={() => {
+              onSelect(currentPath);
+              onClose();
+            }}
+            disabled={!currentPath}
+            className="bg-primary text-primary-foreground ml-4 flex-shrink-0 rounded-lg px-4 py-1.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            Select this folder
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── main component ───────────────────────────────────────────────────────────
 
 export default function PhotoExplorer() {
@@ -524,6 +663,7 @@ export default function PhotoExplorer() {
   const [error, setError] = useState<string | null>(null);
   const [showScanOverlay, setShowScanOverlay] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDirPicker, setShowDirPicker] = useState(false);
 
   const sseRef = useRef<EventSource | null>(null);
 
@@ -655,15 +795,19 @@ export default function PhotoExplorer() {
   }, [scanProgress]);
 
   // Set root directory
-  const handleSetRootDir = useCallback(() => {
-    const dir = rootDirInput.trim();
-    if (!dir) return;
-    setRootDir(dir);
-    setCurrentDir(dir);
-    setSelectedForDeletion(new Set());
-    loadFiles(dir);
-    loadDuplicates();
-  }, [rootDirInput, loadFiles, loadDuplicates]);
+  const handleSetRootDir = useCallback(
+    (dir?: string) => {
+      const resolved = (dir ?? rootDirInput).trim();
+      if (!resolved) return;
+      setRootDirInput(resolved);
+      setRootDir(resolved);
+      setCurrentDir(resolved);
+      setSelectedForDeletion(new Set());
+      loadFiles(resolved);
+      loadDuplicates();
+    },
+    [rootDirInput, loadFiles, loadDuplicates],
+  );
 
   // Handle tab change
   const handleTabChange = useCallback(
@@ -746,7 +890,22 @@ export default function PhotoExplorer() {
             className="border-input bg-background focus:ring-ring min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
           />
           <button
-            onClick={handleSetRootDir}
+            onClick={() => setShowDirPicker(true)}
+            className="border-input hover:bg-accent flex flex-shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors"
+            title="Browse filesystem"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+              />
+            </svg>
+            Browse
+          </button>
+          <button
+            onClick={() => handleSetRootDir()}
             disabled={!rootDirInput.trim()}
             className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-50"
           >
@@ -1074,6 +1233,9 @@ export default function PhotoExplorer() {
       )}
 
       {selectedFile && <FilePreviewModal entry={selectedFile} onClose={() => setSelectedFile(null)} />}
+      {showDirPicker && (
+        <DirectoryPickerModal onSelect={(path) => handleSetRootDir(path)} onClose={() => setShowDirPicker(false)} />
+      )}
 
       {isDeleting && deleteProgress && <DeleteProgressOverlay progress={deleteProgress} />}
 
