@@ -643,6 +643,120 @@ function DirectoryPickerModal({ onSelect, onClose }: { onSelect: (path: string) 
   );
 }
 
+// ─── settings modal ──────────────────────────────────────────────────────────
+
+const TRASH_DIR_STORAGE_KEY = 'photo-dedup.trash-dir';
+
+function SettingsModal({
+  initialTrashDir,
+  onSave,
+  onClose,
+}: {
+  initialTrashDir: string;
+  onSave: (trashDir: string) => void;
+  onClose: () => void;
+}) {
+  const [trashDirInput, setTrashDirInput] = useState(initialTrashDir);
+  const [showPicker, setShowPicker] = useState(false);
+
+  return (
+    <>
+      {!showPicker && (
+        <div
+          className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <div
+            className="bg-card border-border flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="border-border flex items-center justify-between border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Settings</h2>
+              <button onClick={onClose} className="hover:bg-muted rounded-lg p-1.5 transition-colors">
+                <CloseIcon />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4 p-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Trash directory</label>
+                <p className="text-muted-foreground text-xs">
+                  Where deleted files are moved. Leave empty to place a{' '}
+                  <code className="bg-muted rounded px-1 font-mono">.photo-dedup-trash</code> folder inside each scanned
+                  directory.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={trashDirInput}
+                    onChange={(e) => setTrashDirInput(e.target.value)}
+                    placeholder="Default (inside each scanned directory)"
+                    className="border-input bg-background focus:ring-ring min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => setShowPicker(true)}
+                    className="border-input hover:bg-accent flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                    title="Browse filesystem"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+                      />
+                    </svg>
+                    Browse
+                  </button>
+                  {trashDirInput && (
+                    <button
+                      onClick={() => setTrashDirInput('')}
+                      className="border-input hover:bg-accent shrink-0 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                      title="Reset to default"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-border flex justify-end gap-2 border-t px-4 py-3">
+              <button
+                onClick={onClose}
+                className="border-input hover:bg-accent rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onSave(trashDirInput.trim());
+                  onClose();
+                }}
+                className="bg-primary text-primary-foreground rounded-lg px-4 py-1.5 text-sm font-medium transition-opacity hover:opacity-90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPicker && (
+        <DirectoryPickerModal
+          onSelect={(p) => {
+            setTrashDirInput(p);
+            setShowPicker(false);
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </>
+  );
+}
+
 // ─── main component ───────────────────────────────────────────────────────────
 
 export default function PhotoExplorer() {
@@ -664,6 +778,10 @@ export default function PhotoExplorer() {
   const [showScanOverlay, setShowScanOverlay] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showDirPicker, setShowDirPicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customTrashDir, setCustomTrashDir] = useState(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(TRASH_DIR_STORAGE_KEY) ?? '') : '',
+  );
 
   const sseRef = useRef<EventSource | null>(null);
 
@@ -842,7 +960,7 @@ export default function PhotoExplorer() {
       await fetch('/api/photos/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths: [filePath], rootDir }),
+        body: JSON.stringify({ paths: [filePath], rootDir, trashDir: customTrashDir || undefined }),
       });
       done++;
       setDeleteProgress({ done, total: paths.length });
@@ -959,6 +1077,26 @@ export default function PhotoExplorer() {
           >
             History
           </a>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="hover:bg-muted rounded-lg p-1.5 transition-colors"
+            title="Settings"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -1235,6 +1373,16 @@ export default function PhotoExplorer() {
       {selectedFile && <FilePreviewModal entry={selectedFile} onClose={() => setSelectedFile(null)} />}
       {showDirPicker && (
         <DirectoryPickerModal onSelect={(path) => handleSetRootDir(path)} onClose={() => setShowDirPicker(false)} />
+      )}
+      {showSettings && (
+        <SettingsModal
+          initialTrashDir={customTrashDir}
+          onSave={(dir) => {
+            setCustomTrashDir(dir);
+            localStorage.setItem(TRASH_DIR_STORAGE_KEY, dir);
+          }}
+          onClose={() => setShowSettings(false)}
+        />
       )}
 
       {isDeleting && deleteProgress && <DeleteProgressOverlay progress={deleteProgress} />}

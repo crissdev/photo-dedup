@@ -5,13 +5,13 @@ import { prisma } from '@/lib/server/db/prisma-client';
 
 export const TRASH_DIR_NAME = '.photo-dedup-trash';
 
-export async function softDeleteFile(filePath: string, rootDir: string): Promise<void> {
-  const trashDir = path.join(rootDir, TRASH_DIR_NAME);
-  await fs.mkdir(trashDir, { recursive: true });
+export async function softDeleteFile(filePath: string, rootDir: string, trashDir?: string): Promise<void> {
+  const resolvedTrashDir = trashDir ?? path.join(rootDir, TRASH_DIR_NAME);
+  await fs.mkdir(resolvedTrashDir, { recursive: true });
 
   // Create a unique subdirectory per delete action using timestamp
   const timestamp = Date.now();
-  const uniqueDir = path.join(trashDir, String(timestamp));
+  const uniqueDir = path.join(resolvedTrashDir, String(timestamp));
   await fs.mkdir(uniqueDir, { recursive: true });
 
   const fileName = path.basename(filePath);

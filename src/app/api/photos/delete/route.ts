@@ -4,7 +4,7 @@ import { softDeleteFile } from '@/lib/server/photos/file-ops.service';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { paths, rootDir } = body as { paths: string[]; rootDir: string };
+  const { paths, rootDir, trashDir } = body as { paths: string[]; rootDir: string; trashDir?: string };
 
   if (!Array.isArray(paths) || paths.length === 0) {
     return NextResponse.json({ error: 'paths array required' }, { status: 400 });
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   for (const filePath of paths) {
     try {
-      await softDeleteFile(filePath, rootDir);
+      await softDeleteFile(filePath, rootDir, trashDir || undefined);
       results.push({ path: filePath, ok: true });
     } catch (err) {
       results.push({ path: filePath, ok: false, error: String(err) });
