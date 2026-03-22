@@ -1,4 +1,4 @@
-name: photo-undup
+name: photo-dedup
 
 services:
   db:

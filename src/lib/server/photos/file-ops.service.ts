@@ -3,7 +3,7 @@ import path from 'path';
 
 import { prisma } from '@/lib/server/db/prisma-client';
 
-export const TRASH_DIR_NAME = '.photo-undup-trash';
+export const TRASH_DIR_NAME = '.photo-dedup-trash';
 
 export async function softDeleteFile(filePath: string, rootDir: string): Promise<void> {
   const trashDir = path.join(rootDir, TRASH_DIR_NAME);
