@@ -7,16 +7,6 @@ generator client {
   output   = "../src/lib/server/db/prisma/.generated"
 }
 
-model Todo {
-  id        Int      @id @default(autoincrement())
-  title     String
-  completed Boolean
-  createdAt DateTime
-  updatedAt DateTime
-
-  @@map("todos")
-}
-
 model ScannedFile {
   id               Int             @id @default(autoincrement())
   path             String          @unique
