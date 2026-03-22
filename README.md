@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# photo-dedup
 
-## Getting Started
+A web application for finding and cleaning up duplicate photos and videos across a directory tree.
 
-First, run the development server:
+## Features
+
+- **Directory scanning** — recursively scan any local directory for duplicate media files
+- **Duplicate detection** — identifies exact duplicates using MD5 hash comparison
+- **Real-time progress** — scan progress streamed via Server-Sent Events, with cancellation support
+- **Visual explorer** — browse scanned files in a grid, with thumbnail previews and duplicate badges
+- **Soft delete** — move duplicates to a `.photo-dedup-trash/` folder instead of permanently deleting
+- **Action history** — review and restore any previously deleted files
+- **Supported formats** — JPEG, PNG, GIF, WebP, HEIC/HEIF, TIFF, BMP, AVIF, MP4, MOV, AVI, MKV, WebM, MPEG, 3GP, WMV
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org) (App Router) + React 19 + TypeScript
+- [Prisma 7](https://www.prisma.io) + PostgreSQL 17
+- [Tailwind CSS 4](https://tailwindcss.com) + Radix UI
+- [Sharp](https://sharp.pixelplumbing.com) for thumbnail generation
+
+## Prerequisites
+
+- Node.js 18+ and [pnpm](https://pnpm.io) v10
+- PostgreSQL 17 (or Docker)
+
+## Setup
+
+1. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+2. **Configure environment**
+
+   Copy `.env.sample` to `.env` and fill in the values:
+
+   ```bash
+   cp .env.sample .env
+   ```
+
+   Required variables:
+
+   | Variable                             | Description                                                        |
+   | ------------------------------------ | ------------------------------------------------------------------ |
+   | `DATABASE_URL`                       | PostgreSQL connection string (`postgres://user:pass@host:port/db`) |
+   | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | 44-character base64 key — generate with `openssl rand -base64 32`  |
+   | `POSTGRES_USER`                      | PostgreSQL username                                                |
+   | `POSTGRES_PASSWORD`                  | PostgreSQL password                                                |
+   | `POSTGRES_DB`                        | Database name                                                      |
+   | `POSTGRES_PORT`                      | Database port (default: `5432`)                                    |
+   | `POSTGRES_HOST`                      | Database host (default: `localhost`)                               |
+
+3. **Run database migrations**
+
+   ```bash
+   pnpm prisma migrate deploy
+   ```
+
+4. **Start the development server**
+
+   ```bash
+   pnpm dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000).
+
+## Docker
+
+To run the full stack (app + PostgreSQL) with Docker Compose:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This starts PostgreSQL, runs migrations, seeds the database, and starts the Next.js dev server with hot reload.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command          | Description                    |
+| ---------------- | ------------------------------ |
+| `pnpm dev`       | Start development server       |
+| `pnpm build`     | Build for production           |
+| `pnpm start`     | Start production server        |
+| `pnpm lint`      | Run ESLint                     |
+| `pnpm typecheck` | Run TypeScript type checking   |
+| `pnpm test:unit` | Run unit tests                 |
+| `pnpm test:ui`   | Run component tests in browser |
+| `pnpm test:e2e`  | Run Playwright E2E tests       |
